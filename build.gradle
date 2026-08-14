@@ -1,0 +1,138 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.4.5'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.asciidoctor.jvm.convert' version '3.3.2'
+	id 'org.asciidoctor.jvm.pdf' version '3.3.2'
+	id 'com.epages.restdocs-api-spec' version '0.19.4'
+}
+
+group = 'com.mk.www'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+	asciidoctorExtensions
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	
+	// Spring Security 추가
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	
+	compileOnly 'org.projectlombok:lombok'
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	annotationProcessor 'org.projectlombok:lombok'
+	
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	
+	// Security Test 추가
+	testImplementation 'org.springframework.security:spring-security-test'
+	
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	runtimeOnly 'com.h2database:h2'
+	testImplementation 'com.h2database:h2'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	implementation 'com.google.api-client:google-api-client:2.4.1'
+	implementation 'com.google.http-client:google-http-client-jackson2:1.43.3'
+	implementation 'com.google.oauth-client:google-oauth-client-jetty:1.34.1'
+	implementation 'com.google.apis:google-api-services-sheets:v4-rev20230815-2.0.0'
+
+	// SpringDoc OpenAPI (Swagger UI) - Boot 3.4.5 호환 버전
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5'
+
+	// JWT
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+        implementation 'com.google.firebase:firebase-admin:9.4.3'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+
+	// Spring RestDocs
+	asciidoctorExtensions 'org.springframework.restdocs:spring-restdocs-asciidoctor'
+	testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+	testImplementation 'com.epages:restdocs-api-spec-mockmvc:0.19.4'
+}
+
+ext {
+	snippetsDir = file('build/generated-snippets')
+}
+
+openapi3 {
+	server = 'http://localhost:8080'
+	title = 'SmsMonitor API'
+	description = 'SmsMonitor API Description'
+	version = '0.0.1'
+	format = 'json'
+}
+
+test {
+	outputs.dir snippetsDir
+	useJUnitPlatform()
+}
+
+clean {
+	doLast {
+		file('build/generated-snippets').mkdirs()
+	}
+}
+
+asciidoctor {
+	configurations 'asciidoctorExtensions'
+	inputs.dir(snippetsDir).optional()
+	dependsOn test
+}
+
+asciidoctorPdf {
+	configurations 'asciidoctorExtensions'
+	inputs.dir(snippetsDir).optional()
+	dependsOn test
+	
+	baseDirFollowsSourceFile()
+	asciidoctorj {
+		attributes 'pdf-fontsdir': 'fonts',
+				'pdf-theme': 'pdf-theme.yml',
+				'scripts': 'cjk'
+	}
+}
+
+jar {
+	enabled = false
+}
+
+bootJar {
+	dependsOn asciidoctor
+	dependsOn asciidoctorPdf
+	dependsOn 'openapi3'
+	from ("${asciidoctor.outputDir}") {
+		into 'static/docs'
+	}
+	from ("build/docs/asciidocPdf") {
+		into 'static/docs'
+	}
+	from ("build/api-spec") {
+		into 'static/docs'
+	}
+}
+
+task runPushTest(type: JavaExec) {
+    mainClass = 'PushTest'
+    classpath = sourceSets.main.runtimeClasspath + files('.')
+}

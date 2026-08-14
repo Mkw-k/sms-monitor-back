@@ -1,0 +1,15 @@
+font:
+  catalog:
+    NanumGothic:
+      normal: NanumGothic.ttf
+      bold: NanumGothic-Bold.ttf
+      italic: NanumGothic.ttf
+      bold_italic: NanumGothic-Bold.ttf
+  fallbacks:
+    - NanumGothic
+base:
+  font_family: NanumGothic
+code:
+  font_family: NanumGothic
+literal:
+  font_family: NanumGothic

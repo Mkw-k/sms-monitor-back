@@ -1,0 +1,104 @@
+= SmsMonitor API Guide
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 3
+:sectlinks:
+
+== Authentication API
+
+=== Login
+`POST /api/auth/login`
+
+operation::auth-login[snippets='http-request,http-response,request-fields,response-fields']
+
+=== Register
+`POST /api/auth/register`
+
+operation::auth-register[snippets='http-request,http-response,request-fields,response-fields']
+
+=== Token Refresh
+`POST /api/auth/refresh`
+
+operation::auth-refresh[snippets='http-request,http-response,response-fields']
+
+== User API
+
+=== My Profile
+`GET /api/users/me`
+
+operation::user-me[snippets='http-request,http-response,response-fields']
+
+== Account API
+
+=== Account List
+`GET /api/accounts`
+
+operation::account-list[snippets='http-request,http-response,response-fields']
+
+=== Account Summary
+`GET /api/accounts/summary`
+
+operation::account-summary[snippets='http-request,http-response,response-fields']
+
+== Transaction API
+
+=== SMS Receive
+`POST /api/transactions/sms`
+
+operation::transaction-sms[snippets='http-request,http-response,request-fields,response-fields']
+
+=== Transaction List
+`GET /api/transactions`
+
+operation::transaction-list[snippets='http-request,http-response,query-parameters,response-fields']
+
+=== Transaction Statistics
+`GET /api/transactions/statistics`
+
+operation::transaction-statistics[snippets='http-request,http-response,query-parameters,response-fields']
+
+=== Transaction Summary
+`GET /api/transactions/summary`
+
+operation::transaction-summary[snippets='http-request,http-response,response-fields']
+
+=== Savings Analysis
+`GET /api/transactions/analysis/savings`
+
+operation::transaction-savings-analysis[snippets='http-request,http-response,query-parameters,response-fields']
+
+=== Update Memo
+`PUT /api/transactions/{id}/memo`
+
+operation::transaction-memo-update[snippets='http-request,http-response,path-parameters,request-fields,response-fields']
+
+== Spending Category API
+
+=== Category List
+`GET /api/categories`
+
+operation::spending-category-list[snippets='http-request,http-response,response-fields']
+
+=== Create Category
+`POST /api/categories`
+
+operation::spending-category-create[snippets='http-request,http-response,request-fields,response-fields']
+
+=== Delete Category
+`DELETE /api/categories/{id}`
+
+operation::spending-category-delete[snippets='http-request,http-response,path-parameters,response-fields']
+
+== Device API
+
+=== Register Device
+`POST /api/devices/register`
+
+operation::device-register[snippets='http-request,http-response,request-fields']
+
+=== Device List
+`GET /api/devices`
+
+operation::device-list[snippets='http-request,http-response,response-fields']
