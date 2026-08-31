@@ -143,3 +143,14 @@ DB_PASSWORD=<DB_PASSWORD> \
 ./gradlew test
 ```
 - RestDocs API 명세 및 단위/통합 테스트 자동 실행.
+
+---
+
+## 실행화면
+
+<img src="https://github.com/user-attachments/assets/f2c200b7-c3d5-42eb-9c21-4d58789ed115" width="300" />
+<img src="https://github.com/user-attachments/assets/b5cd6aed-6d81-4b72-8cbe-c3736ed01351" width="300" />
+<img src="https://github.com/user-attachments/assets/af9049fc-7078-442e-860b-79a0835f4cce" width="300" />
+<img src="https://github.com/user-attachments/assets/4af5de37-d3f3-4ea2-8015-0c6c34df5915" width="300" />
+<img src="https://github.com/user-attachments/assets/8b52f08a-dde3-4c5f-b806-25e4fa5e5ff3" width="300" />
+<img src="https://github.com/user-attachments/assets/7fbd4afd-bcd3-464a-a2c0-32a87d2366b5" width="300" />
