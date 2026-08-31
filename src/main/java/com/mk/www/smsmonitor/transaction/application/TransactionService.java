@@ -78,7 +78,7 @@ public class TransactionService {
         TransactionEntity saved = transactionRepository.save(entity);
 
         // 자산 반영 로직
-        if (saved.isReflectInAsset() && !saved.isDeleted() && !saved.isIgnored()) {
+        if (saved.isApplicableToAsset()) {
             updateAccountBalance(user, saved.getAmount(), saved.getType(), true);
         }
 
@@ -94,25 +94,17 @@ public class TransactionService {
                 .filter(entity -> entity.getUser().getId().equals(user.getId()))
                 .map(entity -> {
                     // 이전 상태 백업 (자산 반영 계산용)
-                    boolean wasReflected = entity.isReflectInAsset() && !entity.isDeleted() && !entity.isIgnored();
+                    boolean wasReflected = entity.isApplicableToAsset();
                     BigDecimal oldAmount = entity.getAmount();
                     TransactionType oldType = entity.getType();
 
-                    if (request.getAmount() != null) entity.setAmount(request.getAmount());
-                    if (request.getVendor() != null) entity.setVendor(request.getVendor());
-                    if (request.getTransactionTime() != null) entity.setTransactionTime(request.getTransactionTime());
-                    if (request.getIsStupidCost() != null) entity.setStupidCost(request.getIsStupidCost());
-                    if (request.getIsFixedExpense() != null) entity.setFixedExpense(request.getIsFixedExpense());
-                    if (request.getIsIgnored() != null) entity.setIgnored(request.getIsIgnored());
-                    if (request.getIsDeleted() != null) entity.setDeleted(request.getIsDeleted());
-                    if (request.getReflectInAsset() != null) entity.setReflectInAsset(request.getReflectInAsset());
-                    if (request.getMemo() != null) entity.setMemo(request.getMemo());
-                    if (request.getType() != null) entity.setType(request.getType());
+                    // 도메인 객체 내부로 변경 책임 위임
+                    entity.update(request);
 
                     TransactionEntity updated = transactionRepository.save(entity);
 
                     // 자산 실시간 동기화
-                    boolean isNowReflected = updated.isReflectInAsset() && !updated.isDeleted() && !updated.isIgnored();
+                    boolean isNowReflected = updated.isApplicableToAsset();
                     
                     if (wasReflected && !isNowReflected) {
                         // 자산에서 제외됨 -> 이전 금액 복구
@@ -134,22 +126,34 @@ public class TransactionService {
 
     @Transactional
     public Optional<Transaction> updateMemo(Long id, MemoRequest request, String loginId) {
-        TransactionUpdateRequest updateRequest = new TransactionUpdateRequest();
-        updateRequest.setMemo(request.getMemo());
-        return updateTransaction(id, updateRequest, loginId);
+        UserEntity user = userJpaRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        return transactionRepository.findById(id)
+                .filter(entity -> entity.getUser().getId().equals(user.getId()))
+                .map(entity -> {
+                    entity.updateMemo(request.getMemo());
+                    return toDomain(transactionRepository.save(entity));
+                });
     }
 
     private void updateAccountBalance(UserEntity user, BigDecimal amount, TransactionType type, boolean isNew) {
         accountJpaRepository.findByUserAndIsDefault(user, true).ifPresent(account -> {
-            BigDecimal adjustment = amount;
-            if (type == TransactionType.EXPENSE) {
-                // 지출이면: 새 내역이면 차감(-), 취소/수정이면 합산(+)
-                if (!isNew) adjustment = adjustment.negate();
-                account.setBalance(account.getBalance().subtract(adjustment));
+            boolean isExpense = (type == TransactionType.EXPENSE);
+            if (isNew) {
+                // 신규 내역: 지출은 출금, 수입은 입금
+                if (isExpense) {
+                    account.withdraw(amount);
+                } else {
+                    account.deposit(amount);
+                }
             } else {
-                // 수입이면: 새 내역이면 합산(+), 취소/수정이면 차감(-)
-                if (!isNew) adjustment = adjustment.negate();
-                account.setBalance(account.getBalance().add(adjustment));
+                // 취소/수정(복구): 지출 취소는 재입금, 수입 취소는 재출금
+                if (isExpense) {
+                    account.deposit(amount);
+                } else {
+                    account.withdraw(amount);
+                }
             }
             accountJpaRepository.save(account);
             log.info("[Asset Sync] Account: {}, Type: {}, Amount: {}, NewBalance: {}", 
@@ -257,18 +261,10 @@ public class TransactionService {
         BigDecimal variable = transactionRepository.sumVariableExpenseByUserIdAfter(user.getId(), startOfMonth);
         BigDecimal stupid = transactionRepository.sumStupidCostByUserIdAfter(user.getId(), startOfMonth);
 
-        BigDecimal maxPossible = income.subtract(fixed);
-        BigDecimal currentSavings = income.subtract(fixed).subtract(variable);
-        BigDecimal gap = target.subtract(currentSavings);
+        com.mk.www.smsmonitor.transaction.domain.SavingsPlan savingsPlan =
+                new com.mk.www.smsmonitor.transaction.domain.SavingsPlan(income, fixed, variable, stupid, target);
 
-        String recommendation = gap.compareTo(BigDecimal.ZERO) <= 0 
-                ? "훌륭합니다! 저축 목표를 달성했습니다." 
-                : "목표를 위해 지출을 " + gap + "원 더 줄여야 합니다.";
-
-        return SavingsAnalysisResponse.builder()
-                .income(income).fixedExpense(fixed).variableExpense(variable).stupidExpense(stupid)
-                .maxPossibleSavings(maxPossible).currentSavings(currentSavings).targetSavings(target).gap(gap)
-                .recommendation(recommendation).build();
+        return savingsPlan.toResponse();
     }
 
     private Transaction toDomain(TransactionEntity entity) {

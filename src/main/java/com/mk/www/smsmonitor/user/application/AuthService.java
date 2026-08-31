@@ -49,11 +49,11 @@ public class AuthService {
         UserEntity user = userRepository.findByLoginId(request.getLoginId())
                 .orElse(null);
 
-        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (user == null || !user.matchPassword(request.getPassword(), passwordEncoder)) {
             return ResultDTO.error("AUTH_ERROR_002", "아이디 또는 비밀번호가 일치하지 않습니다.", tid);
         }
 
-        if (!user.isApproved()) {
+        if (!user.isAccessible()) {
             return ResultDTO.error("AUTH_ERROR_003", "승인 대기 중인 사용자입니다.", tid);
         }
 
@@ -75,7 +75,7 @@ public class AuthService {
         String loginId = jwtTokenProvider.getLoginId(refreshToken);
         UserEntity user = userRepository.findByLoginId(loginId).orElse(null);
 
-        if (user == null || !user.isApproved()) {
+        if (user == null || !user.isAccessible()) {
             return ResultDTO.error("AUTH_ERROR_005", "유효하지 않은 사용자이거나 승인되지 않았습니다.", tid);
         }
 

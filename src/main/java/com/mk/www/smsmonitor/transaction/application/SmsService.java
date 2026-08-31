@@ -64,10 +64,6 @@ public class SmsService {
         Transaction transaction = transactionOptional.get();
         transaction.analyze(stupidCostStrategies);
 
-        if (transaction.getVendor() != null && (transaction.getVendor().contains("지에스") || transaction.getVendor().contains("GS25") || transaction.getVendor().contains("편의점"))) {
-            transaction.updateStupidCost(true);
-        }
-
         // 4. 거래내역 저장 및 자산 반영 (원자적 트랜잭션)
         recordTransaction(transaction, loginId);
 

@@ -45,7 +45,7 @@ public class AccountService {
         if (request.isDefault()) {
             accountJpaRepository.findByUserAndIsDefault(userEntity, true)
                     .ifPresent(acc -> {
-                        acc.setDefault(false);
+                        acc.unmarkDefault();
                         accountJpaRepository.save(acc);
                     });
         }
@@ -69,12 +69,12 @@ public class AccountService {
 
         // 기존 메인 해제
         accountJpaRepository.findByUserAndIsDefault(userEntity, true)
-                .ifPresent(acc -> acc.setDefault(false));
+                .ifPresent(AccountEntity::unmarkDefault);
 
         // 새로운 메인 설정
         AccountEntity account = accountJpaRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다."));
-        account.setDefault(true);
+        account.markAsDefault();
 
         return account;
     }
@@ -88,7 +88,7 @@ public class AccountService {
         AccountEntity account = accountJpaRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다."));
 
-        if (!account.getUser().getId().equals(userEntity.getId())) {
+        if (!account.isOwnedBy(userEntity)) {
             throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
 
