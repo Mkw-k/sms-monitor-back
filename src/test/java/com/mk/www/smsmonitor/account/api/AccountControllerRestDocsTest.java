@@ -49,6 +49,9 @@ class AccountControllerRestDocsTest {
     private MockMvc mockMvc;
 
     @MockBean
+    private com.mk.www.smsmonitor.account.application.AccountService accountService;
+
+    @MockBean
     private AccountJpaRepository accountJpaRepository;
 
     @MockBean
@@ -93,7 +96,8 @@ class AccountControllerRestDocsTest {
                 .balance(new BigDecimal("1000000"))
                 .build();
         
-        when(accountJpaRepository.findAllByUser(any())).thenReturn(List.of(account));
+        AccountResponse response = AccountResponse.from(account);
+        when(accountService.getMyAccounts(any())).thenReturn(List.of(response));
 
         // when & then
         mockMvc.perform(get("/api/accounts")
@@ -134,14 +138,7 @@ class AccountControllerRestDocsTest {
     @DisplayName("GET /api/accounts/summary - 자산 요약 조회 API 문서화")
     void getAccountSummary_문서화() throws Exception {
         // given
-        UserEntity userEntity = UserEntity.builder().id(1L).loginId("user").build();
-        AccountEntity account = AccountEntity.builder()
-                .id(1L)
-                .user(userEntity)
-                .balance(new BigDecimal("1000000"))
-                .build();
-        
-        when(accountJpaRepository.findAllByUser(any())).thenReturn(List.of(account));
+        when(accountService.getAccountSummary(any())).thenReturn(new BigDecimal("1000000"));
 
         // when & then
         mockMvc.perform(get("/api/accounts/summary")

@@ -24,7 +24,6 @@ import java.util.*;
 
 @Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class TransactionService {
 
@@ -32,6 +31,7 @@ public class TransactionService {
     private final UserJpaRepository userJpaRepository;
     private final AccountJpaRepository accountJpaRepository;
 
+    @Transactional
     public Transaction save(Transaction transaction, String loginId) {
         UserEntity user = userJpaRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -67,6 +67,7 @@ public class TransactionService {
         return toDomain(saved);
     }
 
+    @Transactional
     public Optional<Transaction> updateTransaction(Long id, TransactionUpdateRequest request, String loginId) {
         UserEntity user = userJpaRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -131,7 +132,6 @@ public class TransactionService {
         });
     }
 
-    @Transactional(readOnly = true)
     public TransactionSummaryResponse getSummary(String loginId) {
         UserEntity user = userJpaRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -146,7 +146,6 @@ public class TransactionService {
         return new TransactionSummaryResponse(expense, income, stupid, LocalDateTime.now().getMonthValue() + "월");
     }
 
-    @Transactional(readOnly = true)
     public Page<Transaction> getUserTransactions(String loginId, TransactionSearchRequest searchRequest, Pageable pageable) {
         UserEntity user = userJpaRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -155,7 +154,6 @@ public class TransactionService {
                 .map(this::toDomain);
     }
 
-    @Transactional(readOnly = true)
     public TransactionStatisticsResponse getStatistics(String loginId, String period, LocalDateTime baseDate) {
         UserEntity user = userJpaRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -223,7 +221,6 @@ public class TransactionService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
     public SavingsAnalysisResponse analyzeSavings(String loginId, BigDecimal target) {
         UserEntity user = userJpaRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));

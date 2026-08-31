@@ -24,7 +24,6 @@ public class AccountService {
     private final UserJpaRepository userJpaRepository;
     private final AccountJpaRepository accountJpaRepository;
 
-    @Transactional
     public List<AccountResponse> getMyAccounts(User user) {
         String loginId = (user != null) ? user.getLoginId() : "mkw11";
         UserEntity userEntity = userJpaRepository.findByLoginId(loginId)
@@ -80,6 +79,7 @@ public class AccountService {
         return account;
     }
 
+    @Transactional
     public void deleteAccount(User user, Long id) {
         String loginId = (user != null) ? user.getLoginId() : "mkw11";
         UserEntity userEntity = userJpaRepository.findByLoginId(loginId)
@@ -95,7 +95,6 @@ public class AccountService {
         accountJpaRepository.delete(account);
     }
 
-    @Transactional
     public BigDecimal getAccountSummary(User user){
         String loginId = (user != null) ? user.getLoginId() : "mkw11";
         UserEntity userEntity = userJpaRepository.findByLoginId(loginId)

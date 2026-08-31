@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class SpendingCategoryService {
 
     private final SpendingCategoryRepository spendingCategoryRepository;

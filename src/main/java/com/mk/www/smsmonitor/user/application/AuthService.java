@@ -43,7 +43,6 @@ public class AuthService {
         return ResultDTO.success(null, tid);
     }
 
-    @Transactional(readOnly = true)
     public ResultDTO<TokenResponse> login(LoginRequest request, HttpServletResponse response) {
         String tid = MDC.get(TID_KEY);
 
