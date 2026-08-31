@@ -32,6 +32,24 @@ public class TransactionService {
     private final AccountJpaRepository accountJpaRepository;
 
     @Transactional
+    public Transaction createTransaction(TransactionCreateRequest request, String loginId) {
+        Transaction transaction = Transaction.builder()
+                .amount(request.getAmount())
+                .vendor(request.getVendor())
+                .transactionTime(request.getTransactionTime() != null ? request.getTransactionTime() : LocalDateTime.now())
+                .type(request.getType())
+                .isFixedExpense(request.isFixedExpense())
+                .isStupidCost(request.isStupidCost())
+                .isIgnored(request.isIgnored())
+                .reflectInAsset(request.isReflectInAsset())
+                .memo(request.getMemo())
+                .category(request.getCategory())
+                .isManual(true)
+                .build();
+        return save(transaction, loginId);
+    }
+
+    @Transactional
     public Transaction save(Transaction transaction, String loginId) {
         UserEntity user = userJpaRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
@@ -112,6 +130,13 @@ public class TransactionService {
 
                     return toDomain(updated);
                 });
+    }
+
+    @Transactional
+    public Optional<Transaction> updateMemo(Long id, MemoRequest request, String loginId) {
+        TransactionUpdateRequest updateRequest = new TransactionUpdateRequest();
+        updateRequest.setMemo(request.getMemo());
+        return updateTransaction(id, updateRequest, loginId);
     }
 
     private void updateAccountBalance(UserEntity user, BigDecimal amount, TransactionType type, boolean isNew) {

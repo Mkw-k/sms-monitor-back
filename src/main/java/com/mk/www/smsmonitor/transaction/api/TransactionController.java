@@ -5,11 +5,9 @@ import com.mk.www.smsmonitor.transaction.api.dto.*;
 import com.mk.www.smsmonitor.transaction.application.SmsService;
 import com.mk.www.smsmonitor.transaction.application.TransactionService;
 import com.mk.www.smsmonitor.common.application.FcmService;
-import com.mk.www.smsmonitor.user.infrastructure.DeviceRepository;
 import com.mk.www.smsmonitor.common.api.ApiResponse;
 import com.mk.www.smsmonitor.transaction.domain.Transaction;
 import com.mk.www.smsmonitor.user.domain.User;
-import com.mk.www.smsmonitor.user.domain.Device;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +31,6 @@ public class TransactionController {
     private final SmsService smsService;
     private final TransactionService transactionService;
     private final FcmService fcmService;
-    private final DeviceRepository deviceRepository;
 
     @Operation(summary = "푸시 알림 테스트", description = "입력한 토큰으로 테스트 푸시 알림을 전송")
     @PostMapping("/test-push")
@@ -42,35 +39,17 @@ public class TransactionController {
             @RequestParam(defaultValue = "테스트 알림") String title,
             @RequestParam(defaultValue = "테스트 메시지입니다.") String body) {
         
-        log.info("=== [MANUAL PUSH TEST START] ===");
-        log.info("Target Token: {}", token);
+        log.info("=== [MANUAL PUSH TEST START] Target Token: {} ===", token);
         try {
-            log.info("Current Firebase Project: {}", com.google.firebase.FirebaseApp.getInstance().getOptions().getProjectId());
-            
-            com.google.firebase.messaging.Message message = com.google.firebase.messaging.Message.builder()
-                    .setToken(token)
-                    .setNotification(com.google.firebase.messaging.Notification.builder()
-                            .setTitle(title)
-                            .setBody(body)
-                            .build())
-                    .build();
-
-            String response = com.google.firebase.messaging.FirebaseMessaging.getInstance().send(message);
+            String response = fcmService.sendManualPush(token, title, body);
             log.info("=== [MANUAL PUSH TEST SUCCESS] === Response: {}", response);
             return ResponseEntity.ok(ApiResponse.success("Successfully sent: " + response));
-            
         } catch (com.google.firebase.messaging.FirebaseMessagingException e) {
-            log.error("=== [MANUAL PUSH TEST FAILED - FirebaseMessagingException] ===");
-            log.error("Messaging Error Code: {}", e.getMessagingErrorCode());
-            log.error("HTTP Status Code: {}", e.getHttpResponse() != null ? e.getHttpResponse().getStatusCode() : "N/A");
-            log.error("Error Message: {}", e.getMessage());
+            log.error("=== [MANUAL PUSH TEST FAILED - FirebaseMessagingException] ===", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("FCM_ERROR", e.getMessage()));
         } catch (Exception e) {
-            log.error("=== [MANUAL PUSH TEST FAILED - Unknown Error] ===");
-            log.error("Error Type: {}", e.getClass().getName());
-            log.error("Error Message: {}", e.getMessage());
-            if (e.getCause() != null) log.error("Cause: {}", e.getCause().getMessage());
+            log.error("=== [MANUAL PUSH TEST FAILED - Unknown Error] ===", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("UNKNOWN_ERROR", e.getMessage()));
         }
@@ -80,17 +59,9 @@ public class TransactionController {
     @PostMapping("/sms")
     public ResponseEntity<ApiResponse<Void>> receiveSms(@RequestBody SmsRequest request, @CurrentUser User user) {
         if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        String loginId = user.getLoginId();
 
-        boolean success = smsService.processNewSms(request, loginId);
-
+        boolean success = smsService.processNewSms(request, user.getLoginId());
         if (success) {
-            log.info("sms 파싱성공 - 푸시 알림 전송 시작");
-            // 유저의 모든 등록된 기기로 푸시 발송
-            List<Device> devices = deviceRepository.findByLoginId(loginId);
-            for (Device device : devices) {
-                fcmService.sendMessage(device.getToken(), "실시간 결제 알림", request.getSender() + ": " + request.getMessage());
-            }
             return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<Void>created(null));
         } else {
             return ResponseEntity.badRequest().body(ApiResponse.<Void>error("FAIL", "SMS 처리 실패"));
@@ -102,19 +73,7 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<TransactionResponse>> createTransaction(
             @RequestBody TransactionCreateRequest request, @CurrentUser User user) {
         if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        Transaction transaction = Transaction.builder()
-                .amount(request.getAmount())
-                .vendor(request.getVendor())
-                .transactionTime(request.getTransactionTime() != null ? request.getTransactionTime() : java.time.LocalDateTime.now())
-                .type(request.getType())
-                .isFixedExpense(request.isFixedExpense())
-                .isStupidCost(request.isStupidCost())
-                .isIgnored(request.isIgnored())
-                .memo(request.getMemo())
-                .category(request.getCategory())
-                .isManual(true)
-                .build();
-        Transaction saved = transactionService.save(transaction, user.getLoginId());
+        Transaction saved = transactionService.createTransaction(request, user.getLoginId());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(TransactionResponse.from(saved)));
     }
 
@@ -169,9 +128,7 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<TransactionResponse>> updateMemo(
             @PathVariable Long id, @RequestBody MemoRequest request, @CurrentUser User user) {
         if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        TransactionUpdateRequest updateRequest = new TransactionUpdateRequest();
-        updateRequest.setMemo(request.getMemo());
-        return transactionService.updateTransaction(id, updateRequest, user.getLoginId())
+        return transactionService.updateMemo(id, request, user.getLoginId())
                 .map(TransactionResponse::from)
                 .map(response -> ResponseEntity.ok(ApiResponse.success(response)))
                 .orElse(ResponseEntity.notFound().build());

@@ -32,4 +32,18 @@ public class FcmService {
             log.error("Failed to send FCM message: {} ", e.getMessage());
         }
     }
+
+    public String sendManualPush(String targetToken, String title, String body) throws Exception {
+        if (com.google.firebase.FirebaseApp.getApps().isEmpty()) {
+            throw new IllegalStateException("FirebaseApp is not initialized.");
+        }
+        Message message = Message.builder()
+                .setToken(targetToken)
+                .setNotification(Notification.builder()
+                        .setTitle(title)
+                        .setBody(body)
+                        .build())
+                .build();
+        return FirebaseMessaging.getInstance().send(message);
+    }
 }

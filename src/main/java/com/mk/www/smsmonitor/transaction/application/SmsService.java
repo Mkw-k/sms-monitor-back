@@ -8,7 +8,11 @@ import com.mk.www.smsmonitor.transaction.infrastructure.persistence.RawSmsLogEnt
 import com.mk.www.smsmonitor.transaction.infrastructure.persistence.RawSmsLogJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.mk.www.smsmonitor.common.application.FcmService;
+import com.mk.www.smsmonitor.user.domain.Device;
+import com.mk.www.smsmonitor.user.infrastructure.DeviceRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +27,8 @@ public class SmsService {
     private final List<StupidCostStrategy> stupidCostStrategies;
     private final List<SmsParser> parsers;
     private final RawSmsLogJpaRepository rawSmsLogRepository;
+    private final DeviceRepository deviceRepository;
+    private final FcmService fcmService;
 
     public boolean processNewSms(SmsRequest request, String loginId) {
         String smsContent = request.getMessage();
@@ -33,23 +39,20 @@ public class SmsService {
             return false;
         }
 
-        // [중복 방지 로직 추가] 10초 이내에 동일한 유저가 동일한 발신자로부터 동일한 메시지를 보낸 경우 무시
-        LocalDateTime tenSecondsAgo = LocalDateTime.now().minusSeconds(10);
-        boolean isDuplicate = rawSmsLogRepository.existsByLoginIdAndSenderAndMessageAndReceivedAtAfter(
-                loginId, sender, smsContent, tenSecondsAgo);
-
-        if (isDuplicate) {
+        // 1. 중복 체크
+        if (isDuplicateSms(loginId, sender, smsContent)) {
             log.info("📢 [Deduplication] 중복된 메시지 수신 무시: {} (User: {})", smsContent, loginId);
             return false;
         }
 
-        // 원본 로그 저장
+        // 2. 원본 로그 저장 (독립 작업)
         try {
             saveRawSmsToDb(request, loginId);
         } catch (Exception e) {
             log.error("원본 로그 저장 중 에러 발생: {}", e.getMessage());
         }
 
+        // 3. 파싱 및 분석 (순수 비즈니스 연산)
         Optional<Transaction> transactionOptional = parseSms(smsContent);
         log.info("sms 전문 >>> {} (User: {})", smsContent, loginId);
 
@@ -60,16 +63,28 @@ public class SmsService {
 
         Transaction transaction = transactionOptional.get();
         transaction.analyze(stupidCostStrategies);
-        
+
         if (transaction.getVendor() != null && (transaction.getVendor().contains("지에스") || transaction.getVendor().contains("GS25") || transaction.getVendor().contains("편의점"))) {
             transaction.updateStupidCost(true);
         }
-        
-        transactionService.save(transaction, loginId);
+
+        // 4. 거래내역 저장 및 자산 반영 (원자적 트랜잭션)
+        recordTransaction(transaction, loginId);
+
+        // 5. 푸시 알림 발송 (외부 I/O, 트랜잭션 밖에서 실행)
+        sendPushNotifications(request, loginId);
+
         return true;
     }
 
-    private void saveRawSmsToDb(SmsRequest request, String loginId) {
+    public boolean isDuplicateSms(String loginId, String sender, String message) {
+        LocalDateTime tenSecondsAgo = LocalDateTime.now().minusSeconds(10);
+        return rawSmsLogRepository.existsByLoginIdAndSenderAndMessageAndReceivedAtAfter(
+                loginId, sender, message, tenSecondsAgo);
+    }
+
+    @Transactional
+    public void saveRawSmsToDb(SmsRequest request, String loginId) {
         RawSmsLogEntity logEntity = RawSmsLogEntity.builder()
                 .sender(request.getSender() != null ? request.getSender() : "UNKNOWN")
                 .message(request.getMessage() != null ? request.getMessage() : "EMPTY")
@@ -77,6 +92,22 @@ public class SmsService {
                 .receivedAt(LocalDateTime.now())
                 .build();
         rawSmsLogRepository.save(logEntity);
+    }
+
+    @Transactional
+    public Transaction recordTransaction(Transaction transaction, String loginId) {
+        return transactionService.save(transaction, loginId);
+    }
+
+    public void sendPushNotifications(SmsRequest request, String loginId) {
+        try {
+            List<Device> devices = deviceRepository.findByLoginId(loginId);
+            for (Device device : devices) {
+                fcmService.sendMessage(device.getToken(), "실시간 결제 알림", request.getSender() + ": " + request.getMessage());
+            }
+        } catch (Exception e) {
+            log.error("푸시 알림 전송 중 에러 발생: {}", e.getMessage(), e);
+        }
     }
 
     private Optional<Transaction> parseSms(String smsContent) {

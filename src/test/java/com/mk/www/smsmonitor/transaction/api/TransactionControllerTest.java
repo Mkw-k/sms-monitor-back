@@ -424,7 +424,7 @@ class TransactionControllerTest {
                 .type(Transaction.TransactionType.EXPENSE)
                 .build();
 
-        when(transactionService.updateTransaction(any(Long.class), any(TransactionUpdateRequest.class), eq("user"))).thenReturn(Optional.of(updatedTransaction));
+        when(transactionService.updateMemo(any(Long.class), any(MemoRequest.class), eq("user"))).thenReturn(Optional.of(updatedTransaction));
 
         // when & then
         mockMvc.perform(put("/api/transactions/{id}/memo", 1L)

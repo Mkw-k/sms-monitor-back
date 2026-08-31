@@ -38,9 +38,22 @@ class SmsServiceMockTest {
     @Mock
     private RawSmsLogJpaRepository rawSmsLogRepository;
 
+    @Mock
+    private com.mk.www.smsmonitor.user.infrastructure.DeviceRepository deviceRepository;
+
+    @Mock
+    private com.mk.www.smsmonitor.common.application.FcmService fcmService;
+
     @BeforeEach
     void setUp() {
-        smsService = new SmsService(transactionService, List.of(stupidCostStrategy), List.of(kbCardParser, nhCardParser), rawSmsLogRepository);
+        smsService = new SmsService(
+                transactionService,
+                List.of(stupidCostStrategy),
+                List.of(kbCardParser, nhCardParser),
+                rawSmsLogRepository,
+                deviceRepository,
+                fcmService
+        );
     }
 
     @Test
@@ -64,6 +77,7 @@ class SmsServiceMockTest {
         verify(kbCardParser, times(1)).parse(smsContent);
         verify(mockTransaction, times(1)).analyze(any());
         verify(transactionService, times(1)).save(mockTransaction, "user");
+        verify(deviceRepository, times(1)).findByLoginId("user");
     }
 
     @Test
